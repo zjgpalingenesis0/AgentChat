@@ -1,4 +1,10 @@
 ## 一、安装minio
+直接在命令行中运行下面的命令就好了。  
+```cmd
+docker run -d --name minio -p 9000:9000 -p 9001:9001 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin minio/minio server /data --console-address ":9001"
+```
+后面的不用管
+
 
 例如现在D盘中创建 D:\minio
 
