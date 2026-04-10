@@ -184,6 +184,7 @@ class WorkSpaceSimpleAgent:
 
     async def _generate_title(self, query):
         session = await WorkSpaceSessionService.get_workspace_session_from_id(self.session_id, self.user_id)
+        # 如果会话存在，直接返回已有标题，不用调llm生成标题了
         if session:
             return session.get("title")
         title_prompt = GenerateTitlePrompt.format(query=query)

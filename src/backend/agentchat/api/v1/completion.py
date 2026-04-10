@@ -18,6 +18,7 @@ from agentchat.utils.helpers import build_completion_system_prompt, build_comple
 
 router = APIRouter(tags=["Completion"])
 
+# 作用：监听客户端断开连接，及时停止 AI 生成
 class WatchedStreamingResponse(StreamingResponse):
     """
     重写 StreamingResponse类 保证流式输出的时候可随时暂停
@@ -40,7 +41,7 @@ class WatchedStreamingResponse(StreamingResponse):
             message = await receive()
             if message["type"] == "http.disconnect":
                 loguru.logger.info("http.disconnect. stop task and streaming")
-
+                # 客户端断开时执行回调
                 if self.callback:
                     self.callback()
 
@@ -88,7 +89,7 @@ async def completion(
         if agent_config.system_prompt.strip()
         else SYSTEM_PROMPT
     )
-
+    print(f'是否开启记忆模式: {agent_config.enable_memory}')
     # 根据记忆开关选择历史记录获取策略
     if agent_config.enable_memory:
         # 记忆模式：通过向量检索获取语义相关的历史对话

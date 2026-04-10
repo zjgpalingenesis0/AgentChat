@@ -35,10 +35,10 @@ class DialogDao:
 
             return result
 
-    @classmethod
+    @classmethod   # 作用：定义类方法，可以直接通过类名调用，无需创建实例
     async def get_agent_by_dialog_id(cls, dialog_id: str):
-        with session_getter() as session:
-            sql = select(DialogTable).where(DialogTable.dialog_id == dialog_id)
+        with session_getter() as session:   # 作用：获取数据库会话，自动管理连接生命周期
+            sql = select(DialogTable).where(DialogTable.dialog_id == dialog_id)  # DialogTable在database/models/dialog.py中
             result = session.exec(sql).first()
             return result
 
