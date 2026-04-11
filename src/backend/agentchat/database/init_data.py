@@ -93,6 +93,70 @@ async def insert_llm_to_mysql():
     )
 
 
+async def sync_llm_from_config():
+    """
+    每次启动时同步 config.yaml 中的 LLM 配置到数据库
+    如果数据库中的 LLM 配置与 config.yaml 不一致，则更新
+    """
+    try:
+        from agentchat.database.dao.llm import LLMDao
+
+        # 从配置文件读取对话模型配置
+        config_api_key = app_settings.multi_models.conversation_model.api_key
+        config_base_url = app_settings.multi_models.conversation_model.base_url
+        config_model = app_settings.multi_models.conversation_model.model_name
+        config_provider = get_provider_from_model(config_model)
+
+        from agentchat.database.models.user import AdminUser
+
+        # 获取数据库中的系统 LLM
+        existing_llms = await LLMService.get_all_llm(AdminUser)
+        # 展开分组的结果
+        all_llms = []
+        for llm_list in existing_llms.values():
+            all_llms.extend(llm_list)
+
+        system_llm = None
+
+        for llm in all_llms:
+            if llm.get('user_id') == SystemUser and llm.get('llm_type') == 'LLM':
+                system_llm = llm
+                break
+
+        if system_llm:
+            # 检查是否需要更新
+            need_update = (
+                system_llm.get('model') != config_model or
+                system_llm.get('api_key') != config_api_key or
+                system_llm.get('base_url') != config_base_url or
+                system_llm.get('provider') != config_provider
+            )
+
+            if need_update:
+                logger.info(f"检测到 config.yaml 中对话模型配置已变更，开始同步...")
+                logger.info(f"  原配置: model={system_llm.get('model')}, provider={system_llm.get('provider')}")
+                logger.info(f"  新配置: model={config_model}, provider={config_provider}")
+
+                await LLMDao.update_llm(
+                    llm_id=system_llm['llm_id'],
+                    model=config_model,
+                    api_key=config_api_key,
+                    base_url=config_base_url,
+                    provider=config_provider
+                )
+                logger.success(f"✅ 已更新对话模型配置: {config_model}")
+            else:
+                logger.info("对话模型配置与 config.yaml 一致，无需更新")
+        else:
+            # 如果数据库中没有系统 LLM，则创建
+            logger.info("未找到系统对话模型，创建新记录...")
+            await insert_llm_to_mysql()
+            logger.success(f"✅ 已创建对话模型: {config_model}")
+
+    except Exception as err:
+        logger.error(f"同步 LLM 配置失败: {err}")
+
+
 # 初始化默认的Tool
 async def insert_tools_to_mysql():
     tools = await load_default_tool()

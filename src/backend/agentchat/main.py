@@ -65,10 +65,12 @@ async def init_config():
         update_system_mcp_server,
         upload_user_avatars_storage,
         update_missing_tools,
-        create_missing_agents_for_tools
+        create_missing_agents_for_tools,
+        sync_llm_from_config
     )
     await init_database()
     await init_default_agent()
+    await sync_llm_from_config()  # 同步 config.yaml 中的 LLM 配置到数据库
     await update_system_mcp_server()
     await update_missing_tools()  # 增量更新工具
     await create_missing_agents_for_tools()  # 为缺失的工具创建智能体
