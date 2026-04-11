@@ -250,3 +250,49 @@ async def update_missing_tools():
 
     except Exception as err:
         logger.error(f"更新工具失败: {err}")
+
+
+# 为缺失的工具创建智能体
+async def create_missing_agents_for_tools():
+    """
+    检查哪些工具没有对应的智能体，为它们自动创建智能体
+    """
+    try:
+        # 获取所有系统工具
+        tools = await ToolService.get_tools_data()
+
+        # 获取所有系统智能体
+        agents = await AgentService.get_agent()
+        agent_tool_ids = set()
+        for agent in agents:
+            if agent.get('is_custom') == False:  # 只检查官方智能体
+                agent_tool_ids.update(agent.get('tool_ids', []))
+
+        # 找出没有智能体的工具
+        tools_without_agent = [tool for tool in tools if tool['tool_id'] not in agent_tool_ids]
+
+        if tools_without_agent:
+            logger.info(f"发现 {len(tools_without_agent)} 个工具缺少智能体，开始创建...")
+
+            llm = await LLMService.get_one_llm()
+
+            for tool in tools_without_agent:
+                try:
+                    tool["name"] = tool["display_name"] + "助手"
+                    await AgentDao.create_agent(
+                        AgentTable(
+                            **ToolTable(**tool).model_dump(exclude={"user_id", "tool_id"}),
+                            tool_ids=[tool["tool_id"]],
+                            user_id=SystemUser,
+                            is_custom=False,
+                            llm_id=llm.get("llm_id")
+                        )
+                    )
+                    logger.success(f"✅ 已为工具 '{tool['display_name']}' 创建智能体: {tool['name']}")
+                except Exception as e:
+                    logger.error(f"❌ 为工具 '{tool['display_name']}' 创建智能体失败: {e}")
+        else:
+            logger.info("所有工具都已有对应的智能体")
+
+    except Exception as err:
+        logger.error(f"创建缺失智能体失败: {err}")
