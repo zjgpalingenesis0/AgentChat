@@ -31,6 +31,17 @@ class ModelManager:
         )
 
     @classmethod
+    def get_structured_output_model(cls, **kwargs) -> BaseChatModel:
+        structured_output_model = app_settings.multi_models.structured_output_model
+
+        return ChatOpenAI(
+            stream_usage=True,
+            model=structured_output_model.model_name,
+            api_key=structured_output_model.api_key,
+            base_url=structured_output_model.base_url
+        )
+
+    @classmethod
     def get_reasoning_model(cls) -> ReasoningModel:
         reasoning_model = app_settings.multi_models.reasoning_model
 
