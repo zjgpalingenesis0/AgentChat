@@ -6,6 +6,7 @@ import { MdPreview } from "md-editor-v3"
 import "md-editor-v3/lib/style.css"
 import { getWorkspacePluginsAPI, workspaceSimpleChatStreamAPI, type WorkSpaceSimpleTask } from '../../../apis/workspace'
 import { getVisibleLLMsAPI, type LLMResponse } from '../../../apis/llm'
+import { uploadFileAPI } from '../../../apis/file'
 import { useUserStore } from '../../../store/user'
 
 const userStore = useUserStore()
@@ -28,6 +29,7 @@ const webSearchEnabled = ref(false)
 const toolDropdownRef = ref<HTMLElement | null>(null)
 const mcpDropdownRef = ref<HTMLElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
+const attachedFiles = ref<Array<{ name: string; url: string }>>([])  // 已上传的附件
 const currentSessionId = ref<string>('')  // 当前会话ID
 const chatConversationRef = ref<HTMLElement | null>(null)  // 聊天容器引用
 const isGenerating = ref(false)  // 是否正在生成回复
@@ -147,13 +149,43 @@ const triggerFileInput = () => {
 }
 
 // 处理文件选择
-const onFileChange = (e: Event) => {
+const onFileChange = async (e: Event) => {
   const input = e.target as HTMLInputElement
   const files = input.files
   if (files && files.length > 0) {
-    ElMessage.success(`已选择 ${files.length} 个文件`)
+    try {
+      ElMessage.info(`正在上传 ${files.length} 个文件...`)
+
+      // 逐个上传文件
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const formData = new FormData()
+        formData.append('file', file)
+
+        const response = await uploadFileAPI(formData)
+
+        if (response.data.status_code === 200) {
+          const fileUrl = response.data.data
+          attachedFiles.value.push({
+            name: file.name,
+            url: fileUrl
+          })
+          ElMessage.success(`文件 "${file.name}" 上传成功`)
+        } else {
+          ElMessage.error(`文件 "${file.name}" 上传失败`)
+        }
+      }
+    } catch (error) {
+      console.error('文件上传出错:', error)
+      ElMessage.error('文件上传出错，请稍后重试')
+    }
   }
   if (input) input.value = ''
+}
+
+// 移除已上传的文件
+const removeFile = (index: number) => {
+  attachedFiles.value.splice(index, 1)
 }
 
 // 切换 MCP 服务器选择
@@ -244,8 +276,19 @@ const handleSend = async () => {
 
     // 将用户消息加入消息列表
     console.log('将用户消息加入 messages')
-    messages.value.push({ role: 'user' as const, content: query })
-    
+
+    // 如果有附件，将文件信息添加到消息内容中
+    let finalQuery = query
+    if (attachedFiles.value.length > 0) {
+      const fileLinks = attachedFiles.value.map(f => `[文件: ${f.name}](${f.url})`).join('\n')
+      finalQuery = `${query}\n\n附件:\n${fileLinks}`
+    }
+
+    messages.value.push({ role: 'user' as const, content: finalQuery })
+
+    // 清空附件列表
+    attachedFiles.value = []
+
     // 自动滚动到底部
     scrollToBottom()
     
@@ -256,7 +299,7 @@ const handleSend = async () => {
 
     try {
       const payload: WorkSpaceSimpleTask = {
-        query,
+        query: finalQuery,
         model_id: selectedModelId.value,
         plugins: selectedTools.value,
         mcp_servers: selectedMcpServers.value,
@@ -671,7 +714,19 @@ watch(
                 multiple
                 @change="onFileChange"
               />
-              
+
+              <!-- 已上传文件列表 -->
+              <div v-if="attachedFiles.length > 0" class="attached-files">
+                <div
+                  v-for="(file, index) in attachedFiles"
+                  :key="index"
+                  class="file-tag"
+                >
+                  <span class="file-name">{{ file.name }}</span>
+                  <span class="file-remove" @click="removeFile(index)">×</span>
+                </div>
+              </div>
+
               <!-- 发送按钮 -->
               <button class="send-btn" :class="{ 'btn-disabled': isGenerating }" :disabled="isGenerating" @click="handleSend">
                 <span v-if="!isGenerating">➤</span>
@@ -1352,6 +1407,51 @@ watch(
           height: 18px;
           object-fit: contain;
           display: block;
+        }
+
+        .attached-files {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          max-width: 300px;
+
+          .file-tag {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: #f0f4ff;
+            border: 1px solid #d1d9ff;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #4b5563;
+
+            .file-name {
+              max-width: 150px;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+
+            .file-remove {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 16px;
+              height: 16px;
+              border-radius: 50%;
+              cursor: pointer;
+              color: #9ca3af;
+              font-size: 18px;
+              line-height: 1;
+              transition: all 0.2s ease;
+
+              &:hover {
+                background: #e5e7eb;
+                color: #374151;
+              }
+            }
+          }
         }
 
         .send-btn {
