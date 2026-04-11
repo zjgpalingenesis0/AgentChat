@@ -21,6 +21,12 @@ async def register_router(app: FastAPI):
 
     app.include_router(router)
 
+    # 挂载静态文件目录
+    import os
+    static_dir = os.path.join(os.path.dirname(__file__), "static")
+    if os.path.exists(static_dir):
+        app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
     # 健康探针
     @app.get("/health")
     def check_health():
@@ -57,11 +63,13 @@ async def init_config():
         init_database,
         init_default_agent,
         update_system_mcp_server,
-        upload_user_avatars_storage
+        upload_user_avatars_storage,
+        update_missing_tools
     )
     await init_database()
     await init_default_agent()
     await update_system_mcp_server()
+    await update_missing_tools()  # 增量更新工具
     await upload_user_avatars_storage()  # 初始化用户头像
 
 def print_logo():

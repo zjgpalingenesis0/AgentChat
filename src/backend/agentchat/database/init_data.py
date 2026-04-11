@@ -211,3 +211,42 @@ async def load_user_avatars():
     with open("./agentchat/config/avatars.json", "r", encoding="utf-8") as f:
         result = json.load(f)
     return result
+
+# 增量更新工具 - 每次启动时检查并添加新工具
+async def update_missing_tools():
+    """
+    每次启动时检查 config/tool.json 中的工具
+    如果数据库中不存在，则自动添加
+    不修改原有逻辑，作为独立函数调用
+    """
+    try:
+        # 读取配置文件中的工具
+        config_tools = await load_default_tool()
+
+        # 获取数据库中已有的系统工具
+        existing_tools = await ToolService.get_tools_data()
+        existing_tool_names = {tool['name'] for tool in existing_tools}
+
+        # 找出需要添加的新工具
+        new_tools = [tool for tool in config_tools if tool['name'] not in existing_tool_names]
+
+        if new_tools:
+            logger.info(f"发现 {len(new_tools)} 个新工具需要添加: {[tool['name'] for tool in new_tools]}")
+
+            for tool in new_tools:
+                try:
+                    await ToolService.create_default_tool(
+                        ToolTable(
+                            **tool,
+                            user_id=SystemUser,
+                            is_user_defined=False
+                        )
+                    )
+                    logger.success(f"✅ 已添加新工具: {tool['display_name']} ({tool['name']})")
+                except Exception as e:
+                    logger.error(f"❌ 添加工具失败 {tool['name']}: {e}")
+        else:
+            logger.info("工具已是最新，无需添加")
+
+    except Exception as err:
+        logger.error(f"更新工具失败: {err}")

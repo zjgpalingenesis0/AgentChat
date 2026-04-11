@@ -52,5 +52,11 @@
     "display_name": "博查搜索",
     "description": "帮助用户使用bocha搜索相关信息",
     "logo_url": "https://agentchat.oss-cn-beijing.aliyuncs.com/icons/tools/bocha.png"
+  },
+  {
+    "name": "create_novel",
+    "display_name": "AI 小说创作",
+    "description": "使用 AI 多智能体协作系统创作小说。包含世界观设计、章节规划、正文撰写、审稿修改等完整流程。适用于各种类型小说创作，如科幻、言情、悬疑、武侠、奇幻等。",
+    "logo_url": "http://localhost:7860/static/icons/tools/novel.jfif"
   }
 ]
