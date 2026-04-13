@@ -20,7 +20,7 @@ class ESClient:
         if not self.client.indices.exists(index=index_name):
 
             try:
-                self.client.indices.create(index=index_name, body=index_config)
+                self.client.indices.create(index=index_name, **index_config)
                 logger.info(f'index name: {index_name} 创建成功')
             except Exception as e:
                 logger.error(f"index name {index_name} error: {e}")
@@ -29,7 +29,7 @@ class ESClient:
             for chunk in chunks:
                 self.client.index(
                     index=index_name,
-                    body=chunk.to_dict()
+                    document=chunk.to_dict()
                 )
                 logger.info(f'chunk id: {chunk.chunk_id} 已存到索引中')
         except Exception as e:
@@ -45,7 +45,7 @@ class ESClient:
 
         documents = []
         try:
-            response = self.client.search(index=index_name, body=index_search)
+            response = self.client.search(index=index_name, **index_search)
             hits = response['hits']
             if not hits.get("max_score"):
                 return documents
@@ -67,7 +67,7 @@ class ESClient:
 
         documents = []
         try:
-            response = self.client.search(index=index_name, body=index_search)
+            response = self.client.search(index=index_name, **index_search)
 
             for hit in response['hits']:
                 documents.append(SearchModel(score=hit['_score'], chunk_id=hit['_source']['chunk_id'],
